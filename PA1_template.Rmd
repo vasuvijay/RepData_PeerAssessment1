@@ -1,25 +1,94 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Activity Monitoring"
+author: "Vasu Vijay"
+date: "September 15, 2015"
+output: html_document
 ---
+Get the data
+```{r, echo = TRUE}
+activity_data <- read.csv("activity.csv",header= TRUE, sep = ",");
+# Interval column is not continous. It can cause issues in interpretation
+# We can make it continous
+# Find the length of the dataset
+mylen = length(activity_data$interval);
+# Create a new column for the continuous interval variable
+activity_data$nuinterval <- activity_data$interval;
+# Populate the new column appropriately
+for (i in 1: mylen) {
+  if(activity_data$interval[i] == 0){ activity_data$nuinterval[i] = 0;}
+  else {
+  if (i > 1) {
+    if(activity_data$interval[i]%% 100 == 0){ # if number is 100, 200,...
+      activity_data$nuinterval[i] <- activity_data$nuinterval[i-1] + 5; # change it to the equivalent of 60 minutes
+    }
+    else { # increment by the interval which for us is 5
+      activity_data$nuinterval[i] <- activity_data$nuinterval[i-1] + activity_data$interval[i] - activity_data$interval[i-1];
+    }
+   }
+  }
+}
+```
+Calculate Mean number of steps per day
+```{r, echo = TRUE}
+sum_vec <- tapply(activity_data$steps, activity_data$date, FUN=sum);
+hist(sum_vec, breaks = 25, main = "Histogram of the Total Number of Steps taken each day", xlab = "Number of Steps", ylab = "Number of days");
+mean_date <- tapply(activity_data$steps, activity_data$date, FUN=mean);
+median_date <- tapply(activity_data$steps, activity_data$date, FUN=median);
+mean_date ;
+median_date ;
+```
+Average Daily Activity pattern
+```{r, echo=TRUE}
+mean_interval <- tapply(activity_data$steps, activity_data$nuinterval, FUN=mean, na.rm = T);
+plot(unique(activity_data$nuinterval, na.rm = TRUE), mean_interval, type = "l", xaxp=c(0,1440,288),xlab = "Intervals", ylab = "Average number of steps per day");
+# To get the interval when the maximum number of steps are taken
+mean_interval[mean_interval == max(mean_interval)];
+# This tells us that in the time interval 510 to 515 minutes after the start
+# of the day, the max of the average steps across all days is taken and it is
+# 206.1698 steps 
 
+# if you wanted to check the daily activity pattern by hour...
+mean_interval <- tapply(activity_data$steps, activity_data$interval, FUN=mean, na.rm = T);
+# It is the same plot but instead of minutes into the day, you can read
+# the hours straight off the X-axis using military time
+plot(unique(activity_data$interval, na.rm = TRUE), mean_interval, type = "l",xaxp=c(0,2400,480),xlab = "Intervals", ylab = "Average number of steps per day");
+mean_interval[mean_interval == max(mean_interval)];
+# This tells us that the 5 minute period between 8.30 and 8.35 am
+# is the slot when the maximum (of the average of the steps across all days)
+# occurs and it is 206.1698 steps
+```
+Inputting Missing Values
+```{r, echo = TRUE}
+# Count the number of NAs in the dataset
+sum(is.na(activity_data));
+#Let us use the mean across all intervals across all days to fill the NAs
+filler <- mean(mean_interval);
+newdata <- activity_data ;
+for(i in 1: mylen){
+  if(is.na(newdata$steps[i])) { newdata$steps[i] = filler
+  }
+}
+#newdata$steps <- lapply(newdata$steps, function(x) {if (is.na(x)) return(x = as.integer( filler))} );
+sum_vec2 <- tapply(newdata$steps, newdata$date, FUN=sum, na.rm = T);
+hist(sum_vec2, breaks = 25, main = "Histogram of the Total Number of Steps taken each day", xlab = "Number of Steps", ylab = "Number of days");
+mean_date2 <- tapply(newdata$steps, newdata$date, FUN=mean, na.rm = T);
+median_date2 <- tapply(newdata$steps, newdata$date, FUN=median, na.rm = T);
+mean_date2 ;
+median_date2 ;
+```
+Activity Patterns during weekdays versus weekends
+```{r, echo = TRUE}
 
-## Loading and preprocessing the data
+require(lattice)
 
+newdata$weekdays <- weekdays(as.Date(newdata$date))
+newdata$weekdays <- sapply(newdata$weekdays, function(x){
+    if(x == "Saturday") {x = "Weekend";}
+  else if(x == "Sunday") {x = "Weekend";}
+  else  {x = "Weekday";}
+      })
 
+newdata$weekdays <- factor(newdata$weekdays)
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+xyplot(mean_interval ~ unique(newdata$interval, na.rm =TRUE)|unique(newdata$weekdays),xlab = "Intervals", ylab = "Average number of steps per day")
+```
